@@ -1,0 +1,5 @@
+GPL v3
+
+Copyright (c) 2024 demitas
+
+Refer to [GPL v3 (plain text)](./gpl-3.0.txt) for license text.
