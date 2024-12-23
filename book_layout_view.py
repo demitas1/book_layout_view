@@ -81,7 +81,22 @@ class PageWidget(QWidget):
         load_action.triggered.connect(self.load_image_from_dialog)
         menu.addAction(load_action)
 
+        # ページ挿入用のセパレータを追加
+        menu.addSeparator()
+
+        # 前にページを挿入するアクション
+        insert_before_action = QAction("前に新規ページを挿入", self)
+        insert_before_action.triggered.connect(lambda: self.window().insert_new_page_before(self))
+        menu.addAction(insert_before_action)
+
+        # 後にページを挿入するアクション
+        insert_after_action = QAction("後に新規ページを挿入", self)
+        insert_after_action.triggered.connect(lambda: self.window().insert_new_page_after(self))
+        menu.addAction(insert_after_action)
+
+        # 既存の画像パスコピー機能
         if self.image_path:
+            menu.addSeparator()
             copy_path_action = QAction("画像のパス", self)
             copy_path_action.triggered.connect(self.copy_image_path)
             menu.addAction(copy_path_action)
@@ -321,15 +336,41 @@ class BookLayoutApp(QMainWindow):
 
         page_idx = spread.get_page_index(current_page)
 
-        # 左ページの前に挿入する場合、新しいスプレッドを作成
+        # 左ページの前に挿入する場合
         if page_idx == 0:
-            new_spread = SpreadWidget(self.current_page_width)
-            self.spreads.insert(spread_idx, new_spread)
+            # 前のスプレッドがある場合は、その右ページを分割して新しいスプレッドを作る
+            if spread_idx > 0:
+                prev_spread = self.spreads[spread_idx - 1]
+                # 新しいスプレッドを作成
+                new_spread = SpreadWidget(self.current_page_width)
+                # 前のスプレッドの右ページの内容を新しいスプレッドの左ページに移動
+                new_spread.left_page.load_image(prev_spread.right_page.image_path)
+                # 現在のスプレッドの内容を右に移動
+                new_spread.right_page.load_image(spread.left_page.image_path)
+                spread.left_page.load_image(spread.right_page.image_path)
+                # 前のスプレッドの右ページと現在のスプレッドの右ページをクリア
+                prev_spread.right_page.load_image("")
+                spread.right_page.load_image("")
+                # 新しいスプレッドを挿入
+                self.spreads.insert(spread_idx, new_spread)
+            else:
+                # 最初のスプレッドの場合は、新しいスプレッドを作成して現在の内容を移動
+                new_spread = SpreadWidget(self.current_page_width)
+                # 現在のスプレッドの内容を新しいスプレッドにコピー
+                new_spread.left_page.load_image(spread.left_page.image_path)
+                new_spread.right_page.load_image(spread.right_page.image_path)
+                # 現在のスプレッドの左ページをクリアして右ページに元の左ページの内容を移動
+                temp_left_image = spread.left_page.image_path
+                spread.left_page.load_image("")
+                spread.right_page.load_image(temp_left_image)
+                # 新しいスプレッドを追加
+                self.spreads.insert(spread_idx + 1, new_spread)
 
-        # 右ページの前に挿入する場合、現在のスプレッドを分割
+        # 右ページの前に挿入する場合
         elif page_idx == 1:
+            # 右ページの内容を新しいスプレッドの左ページに移動
             new_spread = SpreadWidget(self.current_page_width)
-            new_spread.right_page.load_image(spread.right_page.image_path)
+            new_spread.left_page.load_image(spread.right_page.image_path)
             spread.right_page.load_image("")
             self.spreads.insert(spread_idx + 1, new_spread)
 
@@ -343,17 +384,32 @@ class BookLayoutApp(QMainWindow):
 
         page_idx = spread.get_page_index(current_page)
 
-        # 左ページの後に挿入する場合、現在のスプレッドを分割
+        # 左ページの後に挿入する場合
         if page_idx == 0:
+            # 右ページの内容を新しいスプレッドの左ページに移動
             new_spread = SpreadWidget(self.current_page_width)
             new_spread.left_page.load_image(spread.right_page.image_path)
             spread.right_page.load_image("")
             self.spreads.insert(spread_idx + 1, new_spread)
 
-        # 右ページの後に挿入する場合、新しいスプレッドを作成
+        # 右ページの後に挿入する場合
         elif page_idx == 1:
-            new_spread = SpreadWidget(self.current_page_width)
-            self.spreads.insert(spread_idx + 1, new_spread)
+            # 次のスプレッドがある場合
+            if spread_idx < len(self.spreads) - 1:
+                next_spread = self.spreads[spread_idx + 1]
+                # 新しいスプレッドを作成
+                new_spread = SpreadWidget(self.current_page_width)
+                # 次のスプレッドの左ページの内容を新しいスプレッドの右ページに移動
+                new_spread.right_page.load_image(next_spread.left_page.image_path)
+                # 次のスプレッドの内容を左に移動
+                next_spread.left_page.load_image(next_spread.right_page.image_path)
+                next_spread.right_page.load_image("")
+                # 新しいスプレッドを挿入
+                self.spreads.insert(spread_idx + 1, new_spread)
+            else:
+                # 最後のスプレッドの場合は、新しいスプレッドを追加
+                new_spread = SpreadWidget(self.current_page_width)
+                self.spreads.append(new_spread)
 
         self.reorganize_layout()
         self.update_all_page_numbers()
